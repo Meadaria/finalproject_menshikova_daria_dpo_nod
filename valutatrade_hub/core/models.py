@@ -2,6 +2,7 @@ from datetime import datetime
 import hashlib
 import secrets
 
+
 class User:
    """Класс, представляющий пользователя системы."""
    
@@ -92,8 +93,7 @@ class Wallet:
     """Кошелёк пользователя для одной конкретной валюты"""
 
     def __init__(self, currency_code: str, balance: float = 0.0):
-        
-        self._currency_code = currency_code 
+        self._currency_code = self._validate_currency_code(currency_code)
         self._balance =  float(balance)
 
     @property
@@ -106,6 +106,26 @@ class Wallet:
         if value < 0 or not isinstance(value, float):
             raise ValueError("Баланс не может иметь отрицательные значения и некорректные типы данных")
         self._balance = value
+
+    @property
+    def currency_code(self) -> str:
+        return self._currency_code
+
+    @currency_code.setter
+    def currency_code(self, value: str) -> None:
+        self._currency_code = self._validate_currency_code(value)
+
+    def _validate_currency_code(self, currency_code: str) -> str:
+        """Функция валидирует и нормализует код валюты"""
+        if not currency_code or not isinstance(currency_code, str):
+            raise ValueError("Код валюты не может быть пустым")
+        
+        normalized_code = currency_code.strip().upper()
+        
+        if not normalized_code:
+            raise ValueError("Код валюты не может быть пустым")
+        
+        return normalized_code
 
     def deposit(self, amount: float):
         """Функция пополнения баланса"""
