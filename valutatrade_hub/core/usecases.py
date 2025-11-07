@@ -1,8 +1,9 @@
 import json
 from pathlib import Path
-from models import User, Wallet, Portfolio
 from datetime import datetime
-from session import *
+
+from valutatrade_hub.core.models import User, Wallet, Portfolio
+from valutatrade_hub.core.session import get_current_user_id, set_current_user_id
 
 def load_json_data(filepath: str) -> list:
     """Функция загрузки данных из JSON файла, возвращает список"""
@@ -21,14 +22,13 @@ def get_next_user_id(users_objects) -> int:
 
 def register(username: str, password: str) -> bool:
     """Функция создания нового пользователя."""
-
     try:
         filepath = "data/users.json"
         portfolio_filepath = "data/portfolios.json" 
 
         Path("data/").mkdir(exist_ok=True)
 
-        existing_users_data  = load_json_data(filepath)
+        existing_users_data = load_json_data(filepath)
         existing_users = [User.from_dict(user_data) for user_data in existing_users_data]
         
         for user in existing_users:
@@ -36,25 +36,28 @@ def register(username: str, password: str) -> bool:
                 print(f"Ошибка: пользователь '{username}' уже существует")
                 return False
         
+        if len(password) < 4:
+            print("Пароль должен быть не короче 4 символов")
+            return False
+        
         new_id = get_next_user_id(existing_users)
         new_user = User(
-        user_id= new_id,
-        username=username,
-        hashed_password= 'temp',  
-        salt='temp',
-        registration_date=datetime.now()
-    )
+            user_id=new_id,
+            username=username,
+            hashed_password='temp',
+            salt='temp',
+            registration_date=datetime.now()
+        )
         
         new_user.change_password(password)
 
         all_users_objects = existing_users + [new_user]
         all_users_dicts = [user.to_dict() for user in all_users_objects]
-
         
         with open(filepath, 'w', encoding='utf-8') as f:
             json.dump(all_users_dicts, f, ensure_ascii=False, indent=2)
 
-        existing_portfolios_data  = load_json_data(portfolio_filepath)
+        existing_portfolios_data = load_json_data(portfolio_filepath)
         existing_portfolios = [Portfolio.from_dict(portfolio_data) for portfolio_data in existing_portfolios_data]
         
         new_portfolio = Portfolio(user_id=new_id, wallets={})
@@ -64,7 +67,6 @@ def register(username: str, password: str) -> bool:
         with open(portfolio_filepath, 'w', encoding='utf-8') as f:
             json.dump(all_portfolios_dicts, f, ensure_ascii=False, indent=2)
 
-
         print(f"Пользователь '{username}' зарегистрирован (id={new_id}). Войдите: login --username {username} --password ****")
         return True
         
@@ -72,17 +74,17 @@ def register(username: str, password: str) -> bool:
         print(f"Ошибка: {e}")
         return False
     
-def login (username: str, password: str):
+def login(username: str, password: str):
     """Функция входа и фиксации текущей сессии"""
-
     try:
         filepath = "data/users.json"
-
-        if Path(filepath).exists():
-            with open(filepath, 'r', encoding='utf-8') as f:
-                users_data = json.load(f)
-                if users_data:
-                    existing_users = [User.from_dict(user_data) for user_data in users_data]
+        
+        if not Path(filepath).exists():
+            print(f"Пользователь '{username}' не найден")
+            return False
+            
+        existing_users_data = load_json_data(filepath)
+        existing_users = [User.from_dict(user_data) for user_data in existing_users_data]
 
         user_found = None
         for user in existing_users:
@@ -93,7 +95,6 @@ def login (username: str, password: str):
         if not user_found:
             print(f"Пользователь '{username}' не найден")
             return False
-        
         
         if user_found.verify_password(password):
             set_current_user_id(user_found.user_id)
@@ -107,9 +108,8 @@ def login (username: str, password: str):
         print(f"Ошибка: {e}")
         return False
 
-def show_portfolio(base:str = 'USD'):
+def show_portfolio(base: str = 'USD'):
     """Функция показа портфолио"""
-
     try:
         current_user_id = get_current_user_id()
         if not current_user_id:
@@ -127,8 +127,8 @@ def show_portfolio(base:str = 'USD'):
                 break
             
         if not user_portfolio:
-                print("Портфель не найден")
-                return False
+            print("Портфель не найден")
+            return False
                 
         if not user_portfolio.wallets:
             print("Портфель пуст")
@@ -159,11 +159,14 @@ def show_portfolio(base:str = 'USD'):
     
 def buy(currency: str, amount: float):
     """Функция покупки валюты"""
-
     try:
         current_user_id = get_current_user_id()
         if not current_user_id:
             print("Ошибка: необходимо войти в систему")
+            return False
+        
+        if amount <= 0:
+            print("'amount' должен быть положительным числом")
             return False
         
         portfolio_filepath = "data/portfolios.json"
@@ -213,11 +216,14 @@ def buy(currency: str, amount: float):
 
 def sell(currency: str, amount: float):
     """Функция продажи валюты"""
-
     try:
         current_user_id = get_current_user_id()
         if not current_user_id:
             print("Ошибка: необходимо войти в систему")
+            return False
+        
+        if amount <= 0:
+            print("'amount' должен быть положительным числом")
             return False
         
         portfolio_filepath = "data/portfolios.json"
@@ -239,6 +245,10 @@ def sell(currency: str, amount: float):
         
         wallet = user_portfolio.get_wallet(currency)
         old_balance = wallet.balance
+
+        if amount > old_balance:
+            print(f"Недостаточно средств: доступно {old_balance:.4f} {currency}, требуется {amount:.4f} {currency}")
+            return False
 
         wallet.withdraw(amount)
         new_balance = wallet.balance
@@ -275,9 +285,8 @@ def sell(currency: str, amount: float):
         
 def get_rate(from_currency: str, to_currency: str) -> bool:
     """Функция получения текущего курса одной валюты к другой"""
-    
     try:
-        
+        # Валидация валют
         try:
             temp_from = Wallet(from_currency, 0.0)
             temp_to = Wallet(to_currency, 0.0)
@@ -287,56 +296,26 @@ def get_rate(from_currency: str, to_currency: str) -> bool:
             print(f"Ошибка валидации валюты: {e}")
             return False
         
+        # Получение курсов из заглушки
+        rates_data = _get_stub_rates_data()
         
-        rates_filepath = "data/rates.json"
-        rates_data = load_json_data(rates_filepath) or {}
-        
-        current_time = datetime.now()
-        cache_valid = False
-        rate = None
-        updated_at = None
-        
-     
-        if rates_data and "last_refresh" in rates_data:
-            cache_time = datetime.fromisoformat(rates_data["last_refresh"])
-            if current_time - cache_time < timedelta(minutes=5):
-                cache_valid = True
-        
-       
+        # Поиск прямого или обратного курса
         pair_key = f"{from_currency}_{to_currency}"
         reverse_pair_key = f"{to_currency}_{from_currency}"
         
+        rate = None
+        updated_at = None
         
-        if cache_valid:
-            if pair_key in rates_data:
-                rate_info = rates_data[pair_key]
-                rate = rate_info.get("rate")
+        if pair_key in rates_data:
+            rate_info = rates_data[pair_key]
+            rate = rate_info.get("rate")
+            updated_at = rate_info.get("updated_at")
+        elif reverse_pair_key in rates_data:
+            rate_info = rates_data[reverse_pair_key]
+            reverse_rate = rate_info.get("rate")
+            if reverse_rate:
+                rate = 1 / reverse_rate
                 updated_at = rate_info.get("updated_at")
-            elif reverse_pair_key in rates_data:
-                rate_info = rates_data[reverse_pair_key]
-                reverse_rate = rate_info.get("rate")
-                if reverse_rate:
-                    rate = 1 / reverse_rate
-                    updated_at = rate_info.get("updated_at")
-        
-
-        if not cache_valid or rate is None:
-            print("Обновление курсов...")
-            rates_data = _get_stub_rates_data()  
-            
-            with open(rates_filepath, 'w', encoding='utf-8') as f:
-                json.dump(rates_data, f, ensure_ascii=False, indent=2)
-            
-            if pair_key in rates_data:
-                rate_info = rates_data[pair_key]
-                rate = rate_info.get("rate")
-                updated_at = rate_info.get("updated_at")
-            elif reverse_pair_key in rates_data:
-                rate_info = rates_data[reverse_pair_key]
-                reverse_rate = rate_info.get("rate")
-                if reverse_rate:
-                    rate = 1 / reverse_rate
-                    updated_at = rate_info.get("updated_at")
         
         if rate is not None:
             print(f"Курс: 1 {from_currency} = {rate:.6f} {to_currency}")
@@ -344,6 +323,11 @@ def get_rate(from_currency: str, to_currency: str) -> bool:
                 updated_time = datetime.fromisoformat(updated_at)
                 print(f"Обновлено: {updated_time.strftime('%Y-%m-%d %H:%M:%S')}")
             print(f"Источник: {rates_data.get('source', 'ParserService')}")
+            
+            # Показываем обратный курс для информации
+            if rate > 0:
+                reverse_rate = 1 / rate
+                print(f"Обратный курс: 1 {to_currency} = {reverse_rate:.6f} {from_currency}")
             return True
         else:
             print(f"Ошибка: не удалось получить курс {from_currency} → {to_currency}")
@@ -382,18 +366,10 @@ def _get_stub_rates_data() -> dict:
             "rate": 0.00001685,  # 1 / 59337.21
             "updated_at": current_time
         },
+        "USD_ETH": {
+            "rate": 0.00026882,  # 1 / 3720.00
+            "updated_at": current_time
+        },
         "source": "ParserService",
         "last_refresh": current_time
     }
-
-
-
-
-
-    
-
-    
-
-
-
-

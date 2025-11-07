@@ -2,18 +2,17 @@ from datetime import datetime
 import hashlib
 import secrets
 
-
 class User:
-   """Класс, представляющий пользователя системы."""
-   
-   def __init__(self, user_id: int, username: str, hashed_password: str, salt: str, 
+    """Класс, представляющий пользователя системы."""
+    
+    def __init__(self, user_id: int, username: str, hashed_password: str, salt: str, 
                  registration_date: datetime = None):
         self._user_id = user_id
         self._username = username
         self._hashed_password = hashed_password
         self._salt = salt
         self._registration_date = registration_date or datetime.now()
-        
+    
     @property
     def user_id(self) -> int:
         return self._user_id
@@ -33,7 +32,7 @@ class User:
     @property
     def registration_date(self) -> datetime:
         return self._registration_date
-   
+    
     @username.setter
     def username(self, value: str) -> None:
         if not value or not isinstance(value, str):
@@ -48,18 +47,16 @@ class User:
     
     def get_user_info(self) -> str:
         """Функция выводит информацию о пользователе"""
-
         return (f"User ID: {self._user_id}\n"
                 f"Username: {self._username}\n"
                 f"Registration Date: {self._registration_date.strftime('%Y-%m-%d %H:%M:%S')}")
-   
+    
     def change_password(self, new_password: str) -> None:
-        """Изменяет пароль пользователя, с хешированием нового пароля."""
+        """Функция изменяет пароль пользователя, с хешированием нового пароля."""
         if not new_password or len(new_password) < 4:
             raise ValueError("Пароль должен быть не короче 4 символов")
         
         self._salt = secrets.token_hex(16)
-
         self._hashed_password = hashlib.sha256((new_password + self._salt).encode()).hexdigest()
 
     def verify_password(self, password: str) -> bool:

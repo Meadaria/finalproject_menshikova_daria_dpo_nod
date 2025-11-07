@@ -2,7 +2,7 @@ install:
 	poetry install
 
 project:
-	poetry run python -m main
+	poetry run python main.py
 
 build:
 	poetry build

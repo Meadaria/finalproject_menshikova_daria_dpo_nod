@@ -1,9 +1,11 @@
 #!/usr/bin/python3  
 
-def main():
-    """Основная функция приложения"""
-    print("DB project is running!")
+from valutatrade_hub.cli.interface import run
 
+
+def main():
+    """Основная функция программы"""
+    run()
 
 if __name__ == "__main__":
     main()
