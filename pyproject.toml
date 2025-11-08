@@ -7,12 +7,17 @@ authors = [
 ]
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = ["prompt (>=0.4.1,<0.5.0)"]
+dependencies = ["prompt (>=0.4.1,<0.5.0)", "tomli (>=2.3.0,<3.0.0)", "python-dotenv (>=1.2.1,<2.0.0)", "requests (>=2.31.0,<3.0.0)"]
 
 [tool.poetry]
 packages = [
     {include = "valutatrade_hub"}
 ]
+
+[tool.valutatrade]
+data_directory = "data/"
+rates_ttl_seconds = 300
+default_base_currency = "USD"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

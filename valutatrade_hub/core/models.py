@@ -2,6 +2,8 @@ from datetime import datetime
 import hashlib
 import secrets
 
+from valutatrade_hub.core.exceptions import InsufficientFundsError
+
 class User:
     """Класс, представляющий пользователя системы."""
     
@@ -135,7 +137,11 @@ class Wallet:
     def withdraw(self, amount: float):
        """Функция снятия средств"""
        if amount > self._balance or amount < 0:
-            raise ValueError("Баланс не может иметь отрицательные значения")
+            raise InsufficientFundsError(
+                available=self.balance,
+                required=amount,
+                code=self.currency_code
+            )
        else:
         self._balance -= amount
         return self._balance
@@ -181,7 +187,7 @@ class Portfolio:
         }
 
     @property
-    def user(self) -> int:
+    def user_id(self) -> int:
         return self._user_id
     
     @property
@@ -248,6 +254,9 @@ class Portfolio:
 
     def __str__(self) -> str:
         return f"Portfolio(user_id={self._user_id}, wallets={list(self._wallets.keys())})"
+    
+
+    
     
 
 
