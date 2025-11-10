@@ -1,7 +1,13 @@
 from abc import ABC, abstractmethod
 from typing import Dict
 
+from valutatrade_hub.core.constants import (
+    CURRENCY_NOT_FOUND_MSG,
+    MAX_CURRENCY_CODE_LENGTH,
+    MIN_CURRENCY_CODE_LENGTH,
+)
 from valutatrade_hub.core.exceptions import CurrencyNotFoundError
+
 
 class Currency(ABC):
     """Абстрактный базовый класс для валют"""
@@ -19,8 +25,12 @@ class Currency(ABC):
             raise ValueError("Код валюты не может быть пустым")
         
         code_clean = code.strip().upper()
-        if len(code_clean) < 2 or len(code_clean) > 5:
-            raise ValueError("Код валюты должен содержать от 2 до 5 символов")
+        if (len(code_clean) < MIN_CURRENCY_CODE_LENGTH or 
+            len(code_clean) > MAX_CURRENCY_CODE_LENGTH):
+            raise ValueError(
+                f"Код валюты должен содержать от {MIN_CURRENCY_CODE_LENGTH} "
+                f"до {MAX_CURRENCY_CODE_LENGTH} символов"
+            )
         
         if ' ' in code_clean:
             raise ValueError("Код валюты не может содержать пробелы")
@@ -58,7 +68,8 @@ class FiatCurrency(Currency):
 class CryptoCurrency(Currency):
     """Криптовалюта"""
     
-    def __init__(self, name: str, code: str, algorithm: str = "", market_cap: float = 0):
+    def __init__(self, name: str, code: str, algorithm: str = "", 
+                 market_cap: float = 0):
         super().__init__(name, code)
         self.algorithm = algorithm
         self.market_cap = market_cap
@@ -93,7 +104,8 @@ def _initialize_currencies():
         CryptoCurrency("Ethereum", "ETH", "Proof-of-Stake", 400e9),
         CryptoCurrency("Solana", "SOL", "Proof-of-History", 60e9),
         CryptoCurrency("Cardano", "ADA", "Ouroboros", 15e9),
-        CryptoCurrency("Polkadot", "DOT", "Nominated Proof-of-Stake", 10e9),
+        CryptoCurrency("Polkadot", "DOT", 
+                       "Nominated Proof-of-Stake", 10e9),
         CryptoCurrency("Dogecoin", "DOGE", "Scrypt", 20e9),
     ]
     
@@ -109,9 +121,10 @@ def get_currency(code: str) -> Currency:
     code_upper = code.strip().upper()
     
     if code_upper not in _currency_registry:
-        raise CurrencyNotFoundError(f"Валюта с кодом '{code}' не найдена")
+        raise CurrencyNotFoundError(CURRENCY_NOT_FOUND_MSG.format(code=code))
     
     return _currency_registry[code_upper]
+
 
 def get_all_currencies() -> list[Currency]:
     """Получить все доступные валюты"""

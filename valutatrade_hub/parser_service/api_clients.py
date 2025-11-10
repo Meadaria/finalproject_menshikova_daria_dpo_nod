@@ -1,29 +1,33 @@
 from abc import ABC, abstractmethod
 from typing import Dict
+
 import requests
 
 from valutatrade_hub.core.exceptions import ApiRequestError
+from valutatrade_hub.parser_service.config import parser_config
+from valutatrade_hub.parser_service.constants import DEFAULT_REQUEST_TIMEOUT
 
 
 class BaseApiClient(ABC):
-    """Изолированая логика работы с каждым внешним сервисом"""
+    """Абстрактный базовый класс для API клиентов."""
     
     @abstractmethod
     def fetch_rates(self) -> Dict[str, float]:
-        """  Получение курсов валют от API   """
+        """Получение курсов валют от внешнего API."""
         pass
 
 
 class CoinGeckoClient(BaseApiClient):
-    """Клиент для работы с CoinGecko API"""
+    """Клиент для работы с CoinGecko API."""
     
-    def __init__(self, crypto_id_map: Dict[str, str], timeout: int = 10):
+    def __init__(self, crypto_id_map: Dict[str, str], 
+                 timeout: int = DEFAULT_REQUEST_TIMEOUT):
         self.crypto_id_map = crypto_id_map
         self.timeout = timeout
         self.base_url = "https://api.coingecko.com/api/v3/simple/price"
     
     def fetch_rates(self) -> Dict[str, float]:
-        """ Получение курсов криптовалют от CoinGecko  """
+        """Получение курсов криптовалют от CoinGecko."""
         try:
             crypto_ids = ",".join(self.crypto_id_map.values())
             params = {
@@ -53,16 +57,17 @@ class CoinGeckoClient(BaseApiClient):
 
 
 class ExchangeRateApiClient(BaseApiClient):
-    """Клиент для работы с ExchangeRate-API"""
+    """Клиент для работы с ExchangeRate-API."""
     
-    def __init__(self, api_key: str, base_currency: str = "USD", timeout: int = 10):
+    def __init__(self, api_key: str, base_currency: str = "USD", 
+                 timeout: int = DEFAULT_REQUEST_TIMEOUT):
         self.api_key = api_key
         self.base_currency = base_currency
         self.timeout = timeout
         self.base_url = f"https://v6.exchangerate-api.com/v6/{api_key}/latest/{base_currency}"
     
     def fetch_rates(self) -> Dict[str, float]:
-        """ Получение курсов фиатных валют от ExchangeRate-API  """
+        """Получение курсов фиатных валют от ExchangeRate-API."""
         try:
             response = requests.get(self.base_url, timeout=self.timeout)
             response.raise_for_status()
@@ -73,11 +78,14 @@ class ExchangeRateApiClient(BaseApiClient):
                 error_type = data.get("error-type", "unknown_error")
                 raise ApiRequestError(f"ExchangeRate-API error: {error_type}")
 
-            base_rates = data.get("rates", {})
+            base_rates = data.get("conversion_rates", {})
+            
+            target_currencies = parser_config.FIAT_CURRENCIES
             
             rates = {}
             for currency_code, rate in base_rates.items():
-                if currency_code != self.base_currency:
+                if (currency_code != self.base_currency and 
+                    currency_code in target_currencies):
                     pair_key = f"{currency_code}_{self.base_currency}"
                     rates[pair_key] = rate
             

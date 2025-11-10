@@ -1,24 +1,26 @@
 import logging
-import time
 import threading
+import time
 from typing import Optional
+
+from valutatrade_hub.parser_service.constants import POLLING_INTERVAL, SHUTDOWN_TIMEOUT
 
 logger = logging.getLogger(__name__)
 
 
 class Scheduler:
-    """  Планировщик для периодического выполнения обновления курсов валют.  """
+    """Планировщик для периодического выполнения обновления курсов валют."""
     
-    def __init__(self, updater, interval_seconds: int = 300):
-
+    def __init__(self, updater, interval_seconds: int):
         self.updater = updater
         self.interval_seconds = interval_seconds
         self._stop_event = threading.Event()
         self._thread: Optional[threading.Thread] = None
-        logger.info(f"Планировщик инициализирован с интервалом {interval_seconds} секунд")
+        logger.info(f"Планировщик инициализирован с интервалом "
+                   f"{self.interval_seconds} секунд")
 
     def start(self) -> None:
-        """Функция запуска планировщика"""
+        """Запуск планировщика в отдельном потоке."""
         if self._thread and self._thread.is_alive():
             logger.warning("Планировщик уже запущен")
             return
@@ -29,14 +31,14 @@ class Scheduler:
         logger.info("Планировщик запущен")
 
     def stop(self) -> None:
-        """Функция остановки планировщика"""
+        """Остановка планировщика и ожидание завершения потока."""
         self._stop_event.set()
         if self._thread:
-            self._thread.join(timeout=5)
+            self._thread.join(timeout=SHUTDOWN_TIMEOUT)
         logger.info("Планировщик остановлен")
 
     def _run(self) -> None:
-        """Основной цикл выполнения планировщика"""
+        """Основной цикл выполнения планировщика."""
         logger.info("Цикл планировщика начат")
         
         while not self._stop_event.is_set():
@@ -53,14 +55,15 @@ class Scheduler:
                 logger.error(f"Критическая ошибка в планировщике: {e}")
             
             wait_time = 0
-            while wait_time < self.interval_seconds and not self._stop_event.is_set():
-                time.sleep(1)
-                wait_time += 1
+            while (wait_time < self.interval_seconds and 
+                   not self._stop_event.is_set()):
+                time.sleep(POLLING_INTERVAL)
+                wait_time += POLLING_INTERVAL
 
         logger.info("Цикл планировщика завершен")
 
     def run_once(self) -> bool:
-
+        """Выполнение единоразового обновления курсов."""
         logger.info("Запуск единоразового обновления")
         try:
             return self.updater.run_update()
@@ -70,5 +73,5 @@ class Scheduler:
 
     @property
     def is_running(self) -> bool:
-        """Функция проверки, работает ли планировщик"""
+        """Проверка, работает ли планировщик."""
         return self._thread is not None and self._thread.is_alive()

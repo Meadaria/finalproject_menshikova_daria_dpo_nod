@@ -1,6 +1,16 @@
 from pathlib import Path
 from typing import Any
+
 import tomli
+
+from valutatrade_hub.infra.constants import (
+    CONFIG_SECTION,
+    DEFAULT_BASE_CURRENCY,
+    DEFAULT_DATA_DIR,
+    DEFAULT_LOG_LEVEL,
+    DEFAULT_RATES_TTL,
+    PYPROJECT_PATH,
+)
 
 
 class SettingsLoader:
@@ -14,18 +24,18 @@ class SettingsLoader:
     
     def _load_config(self):
         self._config = {
-            "data_directory": "data/",
-            "rates_ttl_seconds": 300,
-            "default_base_currency": "USD",
-            "log_level": "INFO"
+            "data_directory": DEFAULT_DATA_DIR,
+            "rates_ttl_seconds": DEFAULT_RATES_TTL,
+            "default_base_currency": DEFAULT_BASE_CURRENCY,
+            "log_level": DEFAULT_LOG_LEVEL
         }
         
-        pyproject_path = Path("pyproject.toml")
+        pyproject_path = Path(PYPROJECT_PATH)
         if pyproject_path.exists():
             try:
                 with open(pyproject_path, 'rb') as f:
                     data = tomli.load(f)
-                    tool_config = data.get('tool', {}).get('valutatrade', {})
+                    tool_config = data.get('tool', {}).get(CONFIG_SECTION, {})
                     self._config.update(tool_config)
             except ImportError:
                 pass  

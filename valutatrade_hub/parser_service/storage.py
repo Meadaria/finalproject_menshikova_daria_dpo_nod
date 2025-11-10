@@ -2,7 +2,7 @@ import json
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
 
 from valutatrade_hub.core.exceptions import StorageError
 
@@ -31,16 +31,29 @@ class JsonFileStorage(BaseStorage):
         logger.info(f"Инициализировано JSON хранилище: {self.file_path}")
 
     def save(self, data: Dict[str, Any]) -> None:
-        """Сохранить данные в JSON файл"""
+        """Атомарное сохранение данных через временный файл"""
+        temp_path = None
         try:
             self.file_path.parent.mkdir(parents=True, exist_ok=True)
             
-            with open(self.file_path, 'w', encoding='utf-8') as f:
+            # Создание временного файла
+            temp_path = self.file_path.with_suffix('.tmp')
+            
+            with open(temp_path, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
+            
+            # Атомарная замена
+            temp_path.replace(self.file_path)
             
             logger.debug(f"Данные успешно сохранены в {self.file_path}")
             
         except (IOError, OSError, TypeError) as e:
+            # Удаление временного файла при ошибке
+            if temp_path and temp_path.exists():
+                try:
+                    temp_path.unlink()
+                except OSError:
+                    pass
             error_msg = f"Ошибка сохранения в {self.file_path}: {e}"
             logger.error(error_msg)
             raise StorageError(error_msg) from e
@@ -49,7 +62,8 @@ class JsonFileStorage(BaseStorage):
         """Загрузить данные из JSON файла"""
         try:
             if not self.file_path.exists():
-                logger.warning(f"Файл {self.file_path} не существует, возвращаем пустые данные")
+                logger.warning(f"Файл {self.file_path} не существует, "
+                              f"возвращаем пустые данные")
                 return {}
             
             with open(self.file_path, 'r', encoding='utf-8') as f:
